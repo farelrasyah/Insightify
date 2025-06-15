@@ -9,10 +9,13 @@ config/secrets.js
 .environment
 environment.js
 
+# Debug files dengan API key
+debug-with-key.js
+test-with-key.js
+
 # API Keys dalam format lain
 api-keys.json
 credentials.json
-config.json
 private-config.js
 
 # Personal configuration files

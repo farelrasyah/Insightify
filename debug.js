@@ -2,7 +2,24 @@
 // Jalankan di console browser untuk testing
 
 async function testGeminiAPI() {
-    const API_KEY = 'AIzaSyARIKwnlrUeIxpGvTS5VhRxuR2HhWQCxoY';
+    // API key akan diambil dari secrets.js atau user input
+    // JANGAN hardcode API key di sini!
+    let API_KEY = null;
+    
+    // Try to get API key from various sources
+    if (typeof window.getSecretApiKey !== 'undefined') {
+        API_KEY = window.getSecretApiKey();
+    } else if (typeof window.getApiKey !== 'undefined') {
+        API_KEY = window.getApiKey();
+    } else {
+        console.error('❌ No API key available for testing');
+        return { success: false, error: 'No API key configured' };
+    }
+    
+    if (!API_KEY || API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+        console.error('❌ Please configure your API key in secrets.js');
+        return { success: false, error: 'API key not configured' };
+    }
     
     console.log('🧪 Testing Gemini API...');
     

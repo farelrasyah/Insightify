@@ -24,34 +24,49 @@ Sebelum push ke GitHub, pastikan:
 
 ## 🚀 Deployment Steps
 
-### 1. Check Git Status
+### 1. Run Security Check (RECOMMENDED)
+```bash
+# Windows PowerShell
+.\check-security.ps1
+
+# Ini akan memeriksa semua aspek keamanan secara otomatis
+```
+
+### 2. Manual Check Git Status
 ```bash
 git status
 # Pastikan secrets.js tidak muncul dalam daftar
 ```
 
-### 2. Verify .gitignore
+### 3. Verify .gitignore
 ```bash
 cat .gitignore | grep secrets.js
 # Harus menampilkan: secrets.js
 ```
 
-### 3. Test Production Mode
+### 4. Scan for Hardcoded API Keys
+```bash
+# Check for any remaining API keys in tracked files
+grep -r "AIzaSy" *.js --exclude=secrets.js --exclude=*.example.js
+# Seharusnya tidak menampilkan hasil
+```
+
+### 5. Test Production Mode
 ```bash
 # Rename secrets.js temporary
 mv secrets.js secrets.js.backup
 
-# Test extension (should ask for API key)
+# Test extension (should ask for API key or use fallback)
 # Load extension in Chrome
 
 # Restore secrets.js
 mv secrets.js.backup secrets.js
 ```
 
-### 4. Final Commit
+### 6. Final Commit
 ```bash
 git add .
-git commit -m "feat: API key security implementation"
+git commit -m "feat: secure API key implementation"
 git push origin main
 ```
 

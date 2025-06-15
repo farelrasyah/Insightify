@@ -1,5 +1,5 @@
-// config.js - File konfigurasi untuk API keys dan settings
-// File ini akan masuk ke .gitignore untuk keamanan
+// config.example.js - Template konfigurasi untuk produksi
+// Copy file ini ke config.js dan sesuaikan dengan kebutuhan
 
 const CONFIG = {
     // API Configuration
