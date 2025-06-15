@@ -1,51 +1,79 @@
-// Popup Script untuk Insightify
+// Popup Script untuk Insightify - Versi dengan API key aman untuk GitHub
 class InsightifyPopup {
     constructor() {
-        this.apiKey = null;
+        // API key dari config yang aman untuk GitHub
+        this.apiKey = this.getApiKey();
         this.init();
     }
 
-    async init() {
-        await this.loadApiKey();
-        this.setupEventListeners();
-        this.checkCurrentTab();
-    }
-
-    async loadApiKey() {
+    // Function untuk mendapatkan API key dengan fallback
+    getApiKey() {
         try {
-            const result = await chrome.storage.local.get(['geminiApiKey']);
-            this.apiKey = result.geminiApiKey;
-            
-            if (this.apiKey) {
-                this.showMainSection();
+            // Priority: Secrets file > Config file > Environment > Default
+            if (typeof window.getSecretApiKey !== 'undefined') {
+                return window.getSecretApiKey();
+            } else if (typeof window.getApiKey !== 'undefined') {
+                return window.getApiKey();
+            } else if (typeof window.INSIGHTIFY_CONFIG !== 'undefined') {
+                return window.INSIGHTIFY_CONFIG.DEV_API_KEY;
             } else {
-                this.showSetupSection();
+                // Fallback untuk production - user harus input sendiri
+                return this.getStoredApiKey();
             }
         } catch (error) {
-            console.error('Error loading API key:', error);
-            this.showSetupSection();
+            console.warn('Error getting API key from config:', error);
+            return this.getStoredApiKey();
         }
     }
 
-    setupEventListeners() {
-        // Setup section events
-        document.getElementById('saveApiKey').addEventListener('click', () => {
-            this.saveApiKey();
-        });
-
-        document.getElementById('apiKeyInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.saveApiKey();
+    // Function untuk mendapatkan API key dari storage (untuk production)
+    async getStoredApiKey() {
+        try {
+            const result = await chrome.storage.local.get(['geminiApiKey']);
+            return result.geminiApiKey || null;
+        } catch (error) {
+            console.error('Error getting stored API key:', error);
+            return null;
+        }
+    }    async init() {
+        this.setupEventListeners();
+        this.checkCurrentTab();
+        
+        // Check if API key is available
+        if (!this.apiKey) {
+            console.warn('API key not found in config, checking storage...');
+            this.apiKey = await this.getStoredApiKey();
+            
+            if (!this.apiKey) {
+                console.warn('No API key available, showing setup section');
+                this.showSetupSection();
+                return;
             }
-        });
+        }
+        
+        this.showMainSection(); // Show main section if API key is available
+    }    setupEventListeners() {
+        // Setup section events (untuk case ketika API key tidak tersedia)
+        const saveApiKeyBtn = document.getElementById('saveApiKey');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        
+        if (saveApiKeyBtn) {
+            saveApiKeyBtn.addEventListener('click', () => {
+                this.saveApiKey();
+            });
+        }
+
+        if (apiKeyInput) {
+            apiKeyInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.saveApiKey();
+                }
+            });
+        }
 
         // Main section events
         document.getElementById('summarizeBtn').addEventListener('click', () => {
             this.startSummarization();
-        });
-
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.showSetupSection();
         });
 
         document.getElementById('copyBtn').addEventListener('click', () => {
@@ -55,6 +83,16 @@ class InsightifyPopup {
         document.getElementById('retryBtn').addEventListener('click', () => {
             this.startSummarization();
         });
+
+        // Settings button untuk switch ke setup mode
+        const settingsBtn = document.getElementById('settingsBtn');
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                this.showSetupSection();
+            });
+            // Show settings button in case user wants to change API key
+            settingsBtn.style.display = 'inline-block';
+        }
     }
 
     async saveApiKey() {
@@ -103,37 +141,42 @@ class InsightifyPopup {
                 statusEl.innerHTML = '<p>✅ Siap menganalisis komentar YouTube</p>';
                 statusEl.style.background = '#d4edda';
                 statusEl.style.color = '#155724';
+                statusEl.style.borderRadius = '8px';
+                statusEl.style.padding = '10px';
             } else {
                 statusEl.innerHTML = '<p>⚠️ Buka halaman video YouTube terlebih dahulu</p>';
                 statusEl.style.background = '#fff3cd';
                 statusEl.style.color = '#856404';
+                statusEl.style.borderRadius = '8px';
+                statusEl.style.padding = '10px';
             }
         } catch (error) {
             console.error('Error checking tab:', error);
-        }
+            document.getElementById('status').innerHTML = '<p>❌ Error checking current tab</p>';        }
     }
 
     async startSummarization() {
-        if (!this.apiKey) {
-            this.showNotification('API key belum diatur', 'error');
-            return;
-        }
-
         try {
             // Get current tab
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             
             if (!tab.url || !tab.url.includes('youtube.com/watch')) {
-                this.showNotification('Buka halaman video YouTube terlebih dahulu', 'error');
+                this.showError('Buka halaman video YouTube terlebih dahulu');
                 return;
-            }
+            }            this.showLoading();
 
-            this.showLoading();
+            // List available models for debugging
+            await this.listAvailableModels();
+
+            // Inject content script if not already injected
+            await this.ensureContentScriptInjected(tab.id);
 
             // Send message to content script to extract comments
-            const response = await chrome.tabs.sendMessage(tab.id, { 
-                action: 'extractComments' 
-            });
+            console.log('Sending message to content script...');
+            
+            const response = await this.sendMessageWithRetry(tab.id, { action: 'extractComments' });
+
+            console.log('Response from content script:', response);
 
             if (response.error) {
                 throw new Error(response.error);
@@ -143,6 +186,8 @@ class InsightifyPopup {
                 throw new Error('Tidak ada komentar yang ditemukan. Pastikan komentar sudah dimuat di halaman.');
             }
 
+            console.log(`Found ${response.comments.length} comments`);
+
             // Send comments to Gemini API for summarization
             const summary = await this.summarizeWithGemini(response.comments);
             this.displayResults(summary, response.comments.length);
@@ -151,10 +196,14 @@ class InsightifyPopup {
             console.error('Summarization error:', error);
             this.showError(error.message);
         }
-    }
-
-    async summarizeWithGemini(comments) {
-        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${this.apiKey}`;
+    }    async summarizeWithGemini(comments) {
+        // Try multiple models in order of preference
+        const models = [
+            'gemini-1.5-flash',
+            'gemini-1.5-pro', 
+            'gemini-pro',
+            'gemini-1.0-pro'
+        ];
         
         // Limit comments to avoid API limits
         const maxComments = Math.min(comments.length, 100);
@@ -178,47 +227,64 @@ Buatkan ringkasan yang mencakup:
 
 Format dalam bentuk yang mudah dibaca dengan bullet points.`;
 
-        try {
-            const response = await fetch(GEMINI_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: prompt
+        // Try each model until one works
+        for (const model of models) {
+            try {
+                console.log(`Trying model: ${model}`);
+                const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`;
+                
+                const response = await fetch(GEMINI_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: prompt
+                            }]
                         }]
-                    }]
-                })
-            });
+                    })
+                });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-            }
+                console.log(`API Response status for ${model}:`, response.status);
 
-            const data = await response.json();
-            
-            if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-                throw new Error('Invalid response from Gemini API');
-            }
-
-            return {
-                summary: data.candidates[0].content.parts[0].text,
-                totalComments: comments.length,
-                analyzedComments: selectedComments.length
-            };
-
-        } catch (error) {
-            if (error.message.includes('API_KEY_INVALID')) {
-                throw new Error('API key tidak valid. Periksa kembali API key Anda.');
-            } else if (error.message.includes('QUOTA_EXCEEDED')) {
-                throw new Error('Kuota API sudah habis. Coba lagi nanti.');
-            } else {
-                throw new Error(`Gagal menganalisis komentar: ${error.message}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('API Response data:', data);
+                    
+                    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                        console.log(`Successfully used model: ${model}`);
+                        return {
+                            summary: data.candidates[0].content.parts[0].text,
+                            totalComments: comments.length,
+                            analyzedComments: selectedComments.length
+                        };
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.warn(`Model ${model} failed:`, response.status, errorText);
+                    
+                    // If this is the last model, throw the error
+                    if (model === models[models.length - 1]) {
+                        throw new Error(`API Error: ${response.status} - ${errorText}`);
+                    }
+                    // Otherwise, continue to next model
+                    continue;
+                }
+            } catch (error) {
+                console.warn(`Error with model ${model}:`, error);
+                
+                // If this is the last model, throw the error
+                if (model === models[models.length - 1]) {
+                    throw error;
+                }
+                // Otherwise, continue to next model
+                continue;
             }
         }
+        
+        throw new Error('Semua model Gemini tidak tersedia. Coba lagi nanti.');
     }
 
     showLoading() {
@@ -300,9 +366,72 @@ Format dalam bentuk yang mudah dibaca dengan bullet points.`;
             }
         }, 3000);
     }
+
+    // Helper function to ensure content script is injected
+    async ensureContentScriptInjected(tabId) {
+        try {
+            // Try to ping the content script first
+            await this.sendMessageWithRetry(tabId, { action: 'ping' });
+        } catch (error) {
+            console.log('Content script not found, injecting...');
+            
+            // Inject content script manually
+            await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                files: ['utils.js', 'content.js']
+            });
+            
+            // Wait a bit for injection to complete
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+
+    // Helper function to send message with retry logic
+    async sendMessageWithRetry(tabId, message, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const response = await new Promise((resolve, reject) => {
+                    chrome.tabs.sendMessage(tabId, message, (response) => {
+                        if (chrome.runtime.lastError) {
+                            reject(new Error(chrome.runtime.lastError.message));
+                        } else {
+                            resolve(response);
+                        }
+                    });
+                });
+                
+                return response;
+            } catch (error) {
+                console.warn(`Message attempt ${i + 1} failed:`, error.message);
+                
+                if (i === maxRetries - 1) {
+                    throw error;
+                }
+                
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+    }
+
+    // Function to list available Gemini models (for debugging)
+    async listAvailableModels() {
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${this.apiKey}`);
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Available Gemini models:', data.models?.map(m => m.name) || []);
+                return data.models;
+            }
+        } catch (error) {
+            console.error('Error listing models:', error);
+        }
+        return [];
+    }
 }
 
 // Initialize popup when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('Popup DOM loaded, initializing...');
     new InsightifyPopup();
 });

@@ -44,20 +44,50 @@ git clone https://github.com/farelrasyah/insightify.git
 cd insightify
 ```
 
-### 2. Dapatkan Gemini API Key
+### 2. Setup API Key (PENTING!)
+Ada beberapa cara untuk mengatur API key dengan aman:
+
+#### Option A: Development Setup (Recommended)
+```bash
+# Windows PowerShell
+.\setup.ps1
+
+# Linux/Mac
+chmod +x setup.sh
+./setup.sh
+```
+
+#### Option B: Manual Setup
+1. Copy file template:
+```bash
+cp secrets.example.js secrets.js
+```
+
+2. Edit `secrets.js` dan masukkan API key Anda:
+```javascript
+const SECRETS = {
+    GEMINI_API_KEY: 'AIzaSy_your_actual_api_key_here',
+    // ...
+};
+```
+
+3. Pastikan `secrets.js` masuk `.gitignore` (sudah otomatis)
+
+### 3. Dapatkan Gemini API Key
 1. Kunjungi [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Buat API key baru untuk Gemini
-3. Salin API key Anda
+3. Salin API key Anda dan masukkan ke `secrets.js`
 
-### 3. Install di Chrome
+### 4. Install di Chrome
 1. Buka Chrome dan ketik `chrome://extensions/`
 2. Aktifkan "Developer mode"
 3. Klik "Load unpacked" dan pilih folder `Insightify`
 4. Ekstensi akan muncul di toolbar Chrome
 
-### 4. Konfigurasi API Key
-1. Klik ikon Insightify di toolbar
-2. Masukkan API key Gemini Anda
+### 5. Test Ekstensi
+1. Buka video YouTube dengan komentar
+2. Klik ikon Insightify di toolbar
+3. Klik "✨ Rangkum Komentar" (tidak perlu input API key lagi)
 3. Klik "Simpan" - key akan disimpan lokal di browser
 
 ## 📖 Cara Penggunaan
@@ -116,27 +146,50 @@ Insightify/
 
 ## 🔒 Keamanan API Key
 
-### ⚠️ PENTING: Jangan Hardcode API Key!
+### ⚠️ SISTEM KEAMANAN BERLAPIS
 
-Proyek ini menggunakan beberapa lapisan keamanan:
+Proyek ini menggunakan sistem keamanan berlapis untuk melindungi API key:
 
-1. **Local Storage**: API key disimpan di `chrome.storage.local`
-2. **User Input**: User memasukkan API key mereka sendiri
-3. **Gitignore Protection**: File `config/secrets.js` tidak di-commit
-4. **No Hardcoding**: Tidak ada API key yang di-hardcode di kode
+#### 🛡️ **Development Mode**
+- API key disimpan di `secrets.js` (masuk `.gitignore`)
+- File `secrets.js` tidak akan ter-commit ke GitHub
+- Menggunakan fallback system untuk mendapatkan API key
+
+#### 🔐 **Production Mode**  
+- User dapat input API key sendiri melalui popup
+- API key disimpan lokal di `chrome.storage.local`
+- Tidak ada API key yang di-hardcode dalam source code
+
+#### 📁 **File Structure Keamanan**
+```
+Insightify/
+├── secrets.js           ← File dengan API key asli (TIDAK DI-COMMIT)
+├── secrets.example.js   ← Template tanpa API key (AMAN untuk GitHub)
+├── config.js           ← Konfigurasi umum (AMAN untuk GitHub)
+└── .gitignore          ← Mengabaikan secrets.js
+```
 
 ### Untuk Development:
 ```javascript
-// config/secrets.js (MASUK .GITIGNORE!)
+// secrets.js (MASUK .GITIGNORE!)
 const SECRETS = {
-    GEMINI_API_KEY: 'your-api-key-here'
+    GEMINI_API_KEY: 'AIzaSy_your_real_api_key_here'
 };
 ```
 
 ### Untuk Production:
-- User input API key melalui popup
-- Disimpan dengan `chrome.storage.local.set()`
-- Validasi format API key sebelum disimpan
+```javascript
+// secrets.example.js (AMAN untuk GitHub)
+const SECRETS = {
+    GEMINI_API_KEY: 'YOUR_GEMINI_API_KEY_HERE'  // Template placeholder
+};
+```
+
+### 🔄 **Fallback System**
+1. Cek `secrets.js` (development)
+2. Cek `config.js` (default values)
+3. Cek `chrome.storage.local` (user input)
+4. Minta user input API key jika semua gagal
 
 ## ⚡ Optimasi & Limitasi
 

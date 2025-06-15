@@ -11,17 +11,15 @@
         <header>
             <h1>🧠 Insightify</h1>
             <p>YouTube Comment Summarizer</p>
-        </header>
-
-        <div class="setup-section" id="setupSection">
+        </header>        <div class="setup-section" id="setupSection">
             <h3>⚙️ Setup API Key</h3>
-            <p>Masukkan Gemini API Key Anda:</p>
-            <input type="password" id="apiKeyInput" placeholder="AIzaSy..." />
+            <p>API key sudah dikonfigurasi untuk development. Untuk production, masukkan key Anda:</p>
+            <input type="password" id="apiKeyInput" placeholder="AIzaSy... (opsional)" />
             <button id="saveApiKey">💾 Simpan</button>
-            <p class="note">API key akan disimpan lokal di browser Anda</p>
+            <p class="note">Jika kosong, akan menggunakan key default (development only)</p>
         </div>
 
-        <div class="main-section" id="mainSection" style="display: none;">
+        <div class="main-section" id="mainSection">
             <div class="status" id="status">
                 <p>📺 Pastikan Anda berada di halaman video YouTube</p>
             </div>
@@ -65,9 +63,10 @@
                 <p id="errorMessage"></p>
                 <button id="retryBtn" class="primary-btn">🔄 Coba Lagi</button>
             </div>
-        </div>
-    </div>
+        </div>    </div>
 
+    <script src="config.js"></script>
+    <script src="secrets.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>

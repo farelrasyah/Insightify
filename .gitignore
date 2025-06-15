@@ -1,20 +1,24 @@
 # Insightify - Keamanan dan Privasi
 # File ini memastikan informasi sensitif tidak ter-upload ke GitHub
 
-# API Keys dan Secrets
-config/secrets.js
+# API Keys dan Secrets (PENTING!)
 secrets.js
+config/secrets.js
 *.env
 .env*
+.environment
+environment.js
 
 # API Keys dalam format lain
 api-keys.json
 credentials.json
 config.json
+private-config.js
 
 # Personal configuration files
 personal-config.js
 user-settings.js
+local-config.js
 
 # Development files
 .vscode/settings.json

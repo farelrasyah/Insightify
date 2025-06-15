@@ -1,189 +1,186 @@
-// Content Script untuk Insightify - Ekstraksi Komentar YouTube
-class YouTubeCommentExtractor {
-    constructor() {
-        this.isExtracting = false;
-        this.init();
+// content.js - Script untuk mengekstrak komentar dari halaman YouTube
+console.log('Insightify content script loaded on:', window.location.href);
+
+// Listen for messages from popup/background
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('Content script received message:', request);
+    
+    if (request.action === 'ping') {
+        // Simple ping to check if content script is alive
+        sendResponse({success: true, message: 'Content script is active'});
+        return;
     }
-
-    init() {
-        // Listen for messages from popup
-        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-            if (request.action === 'extractComments') {
-                this.extractComments()
-                    .then(comments => sendResponse({ comments }))
-                    .catch(error => sendResponse({ error: error.message }));
-                return true; // Keep message channel open for async response
-            }
-        });
-
-        // Add Insightify button to YouTube interface (optional)
-        this.addInsightifyButton();
+    
+    if (request.action === 'extractComments') {
+        extractComments()
+            .then(comments => {
+                console.log(`Extracted ${comments.length} comments`);
+                sendResponse({success: true, comments: comments});
+            })
+            .catch(error => {
+                console.error('Error extracting comments:', error);
+                sendResponse({error: error.message});
+            });
+        return true; // Keep message channel open for async response
     }
+});
 
-    async extractComments() {
-        if (this.isExtracting) {
-            throw new Error('Ekstraksi sedang berlangsung...');
+// Function to extract comments from YouTube page
+async function extractComments() {
+    try {
+        // Wait for comments to load
+        await waitForComments();
+        
+        // Scroll to load more comments
+        await scrollToLoadComments();
+        
+        // Extract comment text
+        const comments = getCommentTexts();
+        
+        if (comments.length === 0) {
+            throw new Error('Tidak ada komentar yang ditemukan. Pastikan komentar sudah dimuat.');
         }
-
-        this.isExtracting = true;
-
-        try {
-            // Wait for comments to load
-            await this.waitForComments();
-            
-            // Scroll to load more comments
-            await this.loadMoreComments();
-            
-            // Extract comment texts
-            const comments = this.getCommentTexts();
-            
-            if (comments.length === 0) {
-                throw new Error('Tidak ada komentar yang ditemukan. Pastikan komentar sudah dimuat.');
-            }
-
-            return comments;
-
-        } finally {
-            this.isExtracting = false;
-        }
-    }
-
-    async waitForComments() {
-        const maxWaitTime = 10000; // 10 seconds
-        const startTime = Date.now();
-
-        while (Date.now() - startTime < maxWaitTime) {
-            // Check for comments section
-            const commentsSection = document.querySelector('#comments');
-            const commentItems = document.querySelectorAll('#comment #content-text');
-
-            if (commentsSection && commentItems.length > 0) {
-                return;
-            }
-
-            // Wait a bit before checking again
-            await this.sleep(500);
-        }
-
-        throw new Error('Komentar tidak ditemukan. Pastikan halaman sudah selesai dimuat.');
-    }
-
-    async loadMoreComments() {
-        const maxScrollAttempts = 5;
-        let scrollAttempts = 0;
-        let previousCommentCount = 0;
-
-        while (scrollAttempts < maxScrollAttempts) {
-            // Scroll to comments section
-            const commentsSection = document.querySelector('#comments');
-            if (commentsSection) {
-                commentsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                await this.sleep(1000);
-            }
-
-            // Scroll down to load more comments
-            window.scrollBy(0, 1000);
-            await this.sleep(1500);
-
-            // Check if new comments loaded
-            const currentCommentCount = document.querySelectorAll('#comment #content-text').length;
-            
-            if (currentCommentCount === previousCommentCount) {
-                // No new comments loaded, try scrolling more
-                scrollAttempts++;
-            } else {
-                // New comments loaded, reset counter
-                scrollAttempts = 0;
-                previousCommentCount = currentCommentCount;
-            }
-
-            // Stop if we have enough comments
-            if (currentCommentCount >= 100) {
-                break;
-            }
-        }
-    }
-
-    getCommentTexts() {
-        const commentElements = document.querySelectorAll('#comment #content-text');
-        const comments = [];
-
-        commentElements.forEach(element => {
-            const text = element.textContent?.trim();
-            if (text && text.length > 5) { // Filter out very short comments
-                comments.push(text);
-            }
-        });
-
-        // Remove duplicates and limit to reasonable number
-        const uniqueComments = [...new Set(comments)];
-        return uniqueComments.slice(0, 500); // Limit to 500 comments max
-    }
-
-    addInsightifyButton() {
-        // Add button to YouTube interface for easy access
-        const observer = new MutationObserver(() => {
-            const actionBar = document.querySelector('#actions #top-level-buttons-computed');
-            const existingButton = document.querySelector('.insightify-button');
-
-            if (actionBar && !existingButton) {
-                const button = document.createElement('button');
-                button.className = 'insightify-button';
-                button.innerHTML = '🧠 Rangkum Komentar';
-                button.title = 'Rangkum komentar dengan Insightify';
-
-                button.addEventListener('click', () => {
-                    // Open extension popup or trigger analysis
-                    chrome.runtime.sendMessage({ action: 'openPopup' });
-                });
-
-                actionBar.appendChild(button);
-            }
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
-
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    showNotification(message, type = 'info') {
-        // Remove existing notifications
-        const existingNotifications = document.querySelectorAll('.insightify-notification');
-        existingNotifications.forEach(notification => {
-            notification.remove();
-        });
-
-        // Create new notification
-        const notification = document.createElement('div');
-        notification.className = `insightify-notification ${type}`;
-        notification.innerHTML = `
-            <div style="font-weight: 600; margin-bottom: 5px;">
-                ${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'} Insightify
-            </div>
-            <div>${message}</div>
-        `;
-
-        document.body.appendChild(notification);
-
-        // Auto remove after 4 seconds
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 4000);
+        
+        return comments;
+        
+    } catch (error) {
+        throw new Error(`Gagal mengekstrak komentar: ${error.message}`);
     }
 }
 
-// Initialize when page is loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        new YouTubeCommentExtractor();
+// Wait for comments section to load
+function waitForComments() {
+    return new Promise((resolve, reject) => {
+        const maxWait = 15000; // 15 seconds
+        const startTime = Date.now();
+        
+        function checkComments() {
+            // Try multiple selectors for comments
+            const commentsSection = document.querySelector('#comments') || 
+                                  document.querySelector('ytd-comments') ||
+                                  document.querySelector('#comments-section');
+            
+            const commentItems = document.querySelectorAll('ytd-comment-thread-renderer') ||
+                               document.querySelectorAll('#comment') ||
+                               document.querySelectorAll('.comment-renderer');
+            
+            console.log(`Checking comments: section=${!!commentsSection}, items=${commentItems.length}`);
+            
+            if (commentsSection && commentItems.length > 0) {
+                console.log('Comments found, proceeding...');
+                resolve();
+            } else if (Date.now() - startTime > maxWait) {
+                // If no comments found, try to enable them
+                tryEnableComments();
+                reject(new Error('Comments tidak ditemukan. Pastikan comments diaktifkan untuk video ini.'));
+            } else {
+                setTimeout(checkComments, 1000);
+            }
+        }
+        
+        checkComments();
     });
+}
+
+// Try to enable comments by scrolling down
+function tryEnableComments() {
+    console.log('Trying to enable/load comments...');
+    
+    // Scroll down to trigger comment loading
+    window.scrollTo(0, document.body.scrollHeight / 2);
+    
+    setTimeout(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+    }, 1000);
+}
+
+// Scroll to load more comments
+async function scrollToLoadComments() {
+    const commentsSection = document.querySelector('#comments');
+    if (!commentsSection) return;
+    
+    // Scroll to comments section first
+    commentsSection.scrollIntoView({ behavior: 'smooth' });
+    await sleep(1000);
+    
+    let lastCommentCount = 0;
+    let currentCommentCount = 0;
+    let scrollAttempts = 0;
+    const maxScrolls = 5;
+    
+    while (scrollAttempts < maxScrolls) {
+        currentCommentCount = document.querySelectorAll('ytd-comment-thread-renderer').length;
+        
+        if (currentCommentCount > lastCommentCount) {
+            lastCommentCount = currentCommentCount;
+            
+            // Scroll down to load more
+            window.scrollTo(0, document.body.scrollHeight);
+            await sleep(2000);
+            
+            scrollAttempts++;
+        } else {
+            break; // No more comments loading
+        }
+    }
+    
+    console.log(`Loaded ${currentCommentCount} comments after scrolling`);
+}
+
+// Extract comment texts from the page
+function getCommentTexts() {
+    const comments = [];
+    
+    // Try multiple selectors for comment text
+    const selectors = [
+        'ytd-comment-thread-renderer #content-text',
+        'ytd-comment-renderer #content-text', 
+        '#comment #content-text',
+        '.comment-renderer .comment-text',
+        'yt-formatted-string[id="content-text"]'
+    ];
+    
+    let commentElements = [];
+    
+    for (const selector of selectors) {
+        commentElements = document.querySelectorAll(selector);
+        if (commentElements.length > 0) {
+            console.log(`Found ${commentElements.length} comments using selector: ${selector}`);
+            break;
+        }
+    }
+    
+    if (commentElements.length === 0) {
+        console.warn('No comment elements found with any selector');
+        return [];
+    }
+    
+    commentElements.forEach((element, index) => {
+        if (index < 100) { // Limit to 100 comments for API efficiency
+            const text = element.textContent?.trim();
+            if (text && text.length > 5 && text.length < 500) { // Filter comments
+                comments.push(text);
+            }
+        }
+    });
+    
+    return comments;
+}
+
+// Helper function for delays
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Check if we're on a YouTube video page
+function isYouTubeVideoPage() {
+    return window.location.hostname === 'www.youtube.com' && 
+           window.location.pathname === '/watch';
+}
+
+// Initialize content script
+if (isYouTubeVideoPage()) {
+    console.log('Insightify content script ready on YouTube video page');
 } else {
-    new YouTubeCommentExtractor();
+    console.log('Not on a YouTube video page');
 }

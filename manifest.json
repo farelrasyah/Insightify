@@ -2,10 +2,10 @@
   "manifest_version": 3,
   "name": "Insightify - YouTube Comment Summarizer",
   "version": "1.0.0",
-  "description": "Summarize YouTube comments using AI to get insights from viewer reactions",
-  "permissions": [
+  "description": "Summarize YouTube comments using AI to get insights from viewer reactions",  "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "scripting"
   ],
   "host_permissions": [
     "*://www.youtube.com/*",
@@ -13,7 +13,7 @@
   ],  "content_scripts": [
     {
       "matches": ["*://www.youtube.com/watch*"],
-      "js": ["utils.js", "content.js"],
+      "js": ["config.js", "secrets.js", "utils.js", "content.js"],
       "css": ["style.css"]
     }
   ],
