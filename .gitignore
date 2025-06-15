@@ -1,0 +1,65 @@
+# Insightify - Keamanan dan Privasi
+# File ini memastikan informasi sensitif tidak ter-upload ke GitHub
+
+# API Keys dan Secrets
+config/secrets.js
+secrets.js
+*.env
+.env*
+
+# API Keys dalam format lain
+api-keys.json
+credentials.json
+config.json
+
+# Personal configuration files
+personal-config.js
+user-settings.js
+
+# Development files
+.vscode/settings.json
+.vscode/launch.json
+
+# Node modules (jika menggunakan build tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.zip
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Logs
+*.log
+logs/
+
+# Extension packages
+*.crx
+*.pem
+
+# Backup files
+*.bak
+*.backup

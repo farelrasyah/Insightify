@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insightify</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 Insightify</h1>
+            <p>YouTube Comment Summarizer</p>
+        </header>
+
+        <div class="setup-section" id="setupSection">
+            <h3>⚙️ Setup API Key</h3>
+            <p>Masukkan Gemini API Key Anda:</p>
+            <input type="password" id="apiKeyInput" placeholder="AIzaSy..." />
+            <button id="saveApiKey">💾 Simpan</button>
+            <p class="note">API key akan disimpan lokal di browser Anda</p>
+        </div>
+
+        <div class="main-section" id="mainSection" style="display: none;">
+            <div class="status" id="status">
+                <p>📺 Pastikan Anda berada di halaman video YouTube</p>
+            </div>
+
+            <div class="actions">
+                <button id="summarizeBtn" class="primary-btn">
+                    ✨ Rangkum Komentar
+                </button>
+                <button id="settingsBtn" class="secondary-btn">
+                    ⚙️ Pengaturan
+                </button>
+            </div>
+
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Menganalisis komentar...</p>
+            </div>
+
+            <div class="results" id="results" style="display: none;">
+                <h3>📊 Ringkasan Komentar</h3>
+                <div class="summary-content" id="summaryContent"></div>
+                
+                <div class="stats" id="stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Komentar:</span>
+                        <span class="stat-value" id="totalComments">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Dianalisis:</span>
+                        <span class="stat-value" id="analyzedComments">0</span>
+                    </div>
+                </div>
+
+                <button id="copyBtn" class="secondary-btn">
+                    📋 Salin Ringkasan
+                </button>
+            </div>
+
+            <div class="error" id="error" style="display: none;">
+                <h3>❌ Error</h3>
+                <p id="errorMessage"></p>
+                <button id="retryBtn" class="primary-btn">🔄 Coba Lagi</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
